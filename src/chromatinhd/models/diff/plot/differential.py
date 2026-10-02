@@ -631,16 +631,14 @@ def _process_plotdata(
             plotdata_mean["prob"].loc[plotdata.index.get_level_values("coord")].values
         )
     elif isinstance(relative_to, (list, tuple, np.ndarray, pd.Series, pd.Index)):
-        plotdata["prob_diff"] = (
-            plotdata["prob"]
-            - plotdata.loc[relative_to]
-            .groupby(level="coord")
-            .mean()["prob"][plotdata.index.get_level_values("coord")]
-            .values
+        # mean of the reference clusters, aligned to each (cluster, coord) row
+        reference = (
+            plotdata.loc[list(relative_to)].groupby(level="coord").mean()["prob"]
         )
-        plotdata["prob_reference"] = (
-            plotdata.loc[relative_to].groupby(level="coord").mean()["prob"]
-        )
+        plotdata["prob_reference"] = reference.loc[
+            plotdata.index.get_level_values("coord")
+        ].values
+        plotdata["prob_diff"] = plotdata["prob"] - plotdata["prob_reference"]
     elif isinstance(relative_to, str) and relative_to == "previous":
         reference = pd.Series(
             {
