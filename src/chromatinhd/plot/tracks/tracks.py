@@ -31,11 +31,14 @@ class TracksBroken(pp.grid.broken.Broken):
         Column in the design dataframe to use for scaling. If None, will be ugly
     start_extra_line: float, optional
         Position of the extra line to draw. If None, no extra line is drawn.
+    log: bool, optional
+        If True, plot log1p(value) / log1p(scale) instead of value / scale, i.e. a log(1 + x) y-axis
+        that still runs from 0 to the scale. Default is False.
     """
 
 
     def __init__(
-        self, design, region, breaking, window=None, height=0.6, scale_column = None, start_extra_line=None, color="#7c9c9099", **kwargs
+        self, design, region, breaking, window=None, height=0.6, scale_column = None, start_extra_line=None, color="#7c9c9099", log=False, **kwargs
     ):
         super().__init__(
             breaking=breaking,
@@ -56,6 +59,11 @@ class TracksBroken(pp.grid.broken.Broken):
 
         plotdata_input = plotdata.copy()
 
+        def transform(values, scale):
+            if log:
+                return np.log1p(np.clip(values, 0, None)) / np.log1p(scale)
+            return values / scale
+
         for k, bw in design["bw"].items():
             values = np.array(bw.values(region["chrom"], region["start"], region["end"])[
                 :: region["strand"]
@@ -65,7 +73,7 @@ class TracksBroken(pp.grid.broken.Broken):
                 scale = design.loc[k, scale_column]
             else:
                 scale = values.max()
-            values = values/scale
+            values = transform(values, scale)
         
             plotdata[k] = values
 
@@ -74,7 +82,7 @@ class TracksBroken(pp.grid.broken.Broken):
                 values_input = np.array(bw_input.values(region["chrom"], region["start"], region["end"])[
                     :: region["strand"]
                 ])
-                values_input = values_input/ scale
+                values_input = transform(values_input, scale)
                 plotdata_input[k] = values_input
         
 
