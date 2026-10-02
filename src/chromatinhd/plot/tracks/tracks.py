@@ -27,13 +27,15 @@ class TracksBroken(pp.grid.broken.Broken):
         Window size to plot. If None, the whole region is plotted.
     height:
         Height of the plot. Default is 0.6.
-    scale_per_region:
-        If True, the scale is set to the maximum value of each region. Default is False, which uses a common scale.
-
+    scale_column:
+        Column in the design dataframe to use for scaling. If None, will be ugly
+    start_extra_line: float, optional
+        Position of the extra line to draw. If None, no extra line is drawn.
     """
 
+
     def __init__(
-        self, design, region, breaking, window=None, height=0.6, scale_per_region = False, **kwargs
+        self, design, region, breaking, window=None, height=0.6, scale_column = None, start_extra_line=None, color="#7c9c9099", **kwargs
     ):
         super().__init__(
             breaking=breaking,
@@ -51,10 +53,30 @@ class TracksBroken(pp.grid.broken.Broken):
                 "pos": np.arange(region["end"] - region["start"]) + pad,
             }
         )
+
+        plotdata_input = plotdata.copy()
+
         for k, bw in design["bw"].items():
-            plotdata[k] = bw.values(region["chrom"], region["start"], region["end"])[
+            values = np.array(bw.values(region["chrom"], region["start"], region["end"])[
                 :: region["strand"]
-            ]
+            ])
+
+            if scale_column is not None:
+                scale = design.loc[k, scale_column]
+            else:
+                scale = values.max()
+            values = values/scale
+        
+            plotdata[k] = values
+
+            if "bw_input" in design.columns:
+                bw_input = design.loc[k, "bw_input"]
+                values_input = np.array(bw_input.values(region["chrom"], region["start"], region["end"])[
+                    :: region["strand"]
+                ])
+                values_input = values_input/ scale
+                plotdata_input[k] = values_input
+        
 
         for i, (region, region_info), (panel, ax) in zip(
             range(len(breaking.regions)), breaking.regions.iterrows(), self.elements[0]
@@ -71,39 +93,35 @@ class TracksBroken(pp.grid.broken.Broken):
                         plotdata_region[k],
                         label=k,
                         lw=0.,
-                        color="#33333366",
+                        color=color,
                     )
-            ax.set_ylim(0, 50)
-            ax.set_yticks([], minor = True)
-            ax.set_yticks([])
-            ax.yaxis.set_major_formatter(mpl.ticker.ScalarFormatter())
-            # top ytick vertical alignment top
-            if not scale_per_region and (i == 0):
-                ax.set_yscale("symlog", linthresh=40)
-                ax.set_yticks([0, 10, 100])
-                ax.set_yticks([0, 2.5, 5, 7.5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], minor = True)
+
+                    if "bw_input" in design.columns:
+                        plotdata_region_input = plotdata_input.loc[
+                            (plotdata_input["pos"] >= region_info["start"])
+                            & (plotdata_input["pos"] <= region_info["end"])
+                        ]
+                        ax.fill_between(
+                            plotdata_region_input["pos"],
+                            0,
+                            plotdata_region_input[k],
+                            label=f"{k} input",
+                            lw=0.,
+                            color="#d1c1cd99",
+                        )
+            ax.set_ylim(0, 1)
+            ax.axvline(0, dashes=(1, 1), color="#AAAAAA", zorder=-1, lw=1)
+            if start_extra_line is not None:
+                ax.axvline(start_extra_line, dashes=(1,1), color="#767676", zorder=-1, lw=1)
+            
+
+            if i == 0:
+                ax.set_yticks([0, 1.0])
+                ax.set_yticklabels(["0", f"{scale:.1f}"], fontsize=6)
                 ax.get_yticklabels()[0].set_verticalalignment("bottom")
                 ax.get_yticklabels()[-1].set_verticalalignment("top")
-                ax.tick_params(axis="y", length=4, labelsize=6, pad = 1)
-            elif not scale_per_region:
-                pass
             else:
-                ax.set_yscale("linear")
-                ax.set_yticks([0, plotdata_region[k].max().round(0)-1])
-                ax.annotate(
-                    str(plotdata_region[k].max().round(0)),
-                    (0, 1),
-                    xycoords="axes fraction",
-                    xytext=(2, -5),
-                    textcoords="offset points",
-                    ha="left",
-                    va="bottom",
-                    fontsize=6,
-                )
-                ax.set_ylim(0, plotdata_region[k].max())
-                ax.set_yticklabels([])
-                ax.tick_params(axis="y", length=-4, labelsize=6, pad = 1)
-                # ax.set_yscale("symlog", linthresh=40)
+                ax.set_yticks([])
 
             
 
@@ -115,6 +133,7 @@ class TracksBroken(pp.grid.broken.Broken):
         breaking: pp.grid.Breaking,
         window=None,
         height=0.6,
+        scale_column = None,
         **kwargs,
     ):
         """
@@ -144,11 +163,14 @@ class TracksBroken(pp.grid.broken.Broken):
                 "pyBigWig is required for this method. Please install it using `pip install pyBigWig`."
             )
         design["bw"] = [pyBigWig.open(f"{sample}.bw") for sample in design["sample"]]
+        if "sample_input" in design.columns.tolist():
+            design["bw_input"] = [pyBigWig.open(f"{sample}.bw") for sample in design["sample_input"]]
         return TracksBroken(
             design=design,
             region=region,
             breaking=breaking,
             window=window,
             height=height,
+            scale_column=scale_column,
             **kwargs,
         )

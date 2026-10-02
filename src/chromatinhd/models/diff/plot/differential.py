@@ -280,6 +280,7 @@ class DifferentialBroken(polyptich.grid.Wrap):
         label_accessibility=True,
         label_cluster=True,
         show_scale=True,
+        start_extra_line=None,
         **kwargs,
     ):
         super().__init__(ncol=1, **{"padding_height": 0, **kwargs})
@@ -329,7 +330,9 @@ class DifferentialBroken(polyptich.grid.Wrap):
                 _scale_differential(ax, ymax, lintresh=ylintresh)
                 ax.set_yticks([])
                 ax.set_yticks([], minor=True)
-                ax.axvline(0, dashes=(1, 1), color="#AAA", zorder=-1, lw=1)
+                ax.axvline(0, dashes=(1, 1), color="#AAAAAA", zorder=-1, lw=1)
+                if start_extra_line is not None:
+                    ax.axvline(start_extra_line, dashes=(1,1), color="#767676", zorder=-1, lw=1)
 
                 ax.spines["bottom"].set_color("#33333333")
                 ax.spines["left"].set_visible(False)

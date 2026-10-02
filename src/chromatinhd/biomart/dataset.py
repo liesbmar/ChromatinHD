@@ -225,7 +225,10 @@ class Dataset:
         if genome in ["mm10", "GRCm38"]:
             return Dataset(
                 "mmusculus_gene_ensembl",
-                "https://nov2020.archive.ensembl.org/biomart/martservice?",
+                # "https://nov2020.archive.ensembl.org/biomart/martservice?",
+                # "https://aug2020.archive.ensembl.org/biomart/martservice?",
+                # "https://apr2020.archive.ensembl.org/biomart/martservice?",
+                "https://oct2014.archive.ensembl.org/biomart/martservice?",
                 "ENSEMBL_MART_ENSEMBL",
             )
         elif genome in ["hg19", "GRCh37"]:
@@ -237,19 +240,31 @@ class Dataset:
         elif genome in ["hg38", "GRCh38"]:
             return Dataset(
                 "hsapiens_gene_ensembl",
-                "http://www.ensembl.org/biomart/martservice?",
+                # "http://www.ensembl.org/biomart/martservice?",
+                "https://sep2025.archive.ensembl.org/biomart/martservice?",
                 "ENSEMBL_MART_ENSEMBL",
             )
-        elif genome in ["GRCm39"]:
+        elif genome in ["GRCm39", "mm39"]:
             return Dataset(
                 "mmusculus_gene_ensembl",
-                "http://www.ensembl.org/biomart/martservice?",
+                # "http://www.ensembl.org/biomart/martservice?",
+                # "https://jun2026.archive.ensembl.org/biomart/martservice?",
+                "https://sep2025.archive.ensembl.org/biomart/martservice?",
+                # "https://may2025.archive.ensembl.org/biomart/martservice?",
+                # "https://feb2023.archive.ensembl.org/biomart/martservice?",
                 "ENSEMBL_MART_ENSEMBL",
             )
         elif genome in ["GRCz11"]:
             return Dataset(
                 "drerio_gene_ensembl",
                 "http://www.ensembl.org/biomart/martservice?",
+                "ENSEMBL_MART_ENSEMBL",
+            )
+        elif genome in ["Sscrofa11"]:
+            return Dataset(
+                "sscrofa_gene_ensembl",
+                # "http://www.ensembl.org/biomart/martservice?",
+                "https://sep2025.archive.ensembl.org/biomart/martservice?",
                 "ENSEMBL_MART_ENSEMBL",
             )
         else:

@@ -38,7 +38,7 @@ def center(coords: pd.DataFrame, region: pd.Series, window: np.ndarray = None):
     return coords
 
 
-def get_genes_plotdata(region, genome="GRCh38", window=None, use_cache=True, only_canonical=True):
+def get_genes_plotdata(region, genome="GRCh38", window=None, use_cache=True, only_canonical=True, selected_transcripts=None):
     biomart_dataset = chd.biomart.Dataset.from_genome(genome)
     if "chrom" not in region.index:
         region = region.copy()
@@ -54,7 +54,20 @@ def get_genes_plotdata(region, genome="GRCh38", window=None, use_cache=True, onl
             start=region["start"],
             end=region["end"],
         )
-    exons = chd.biomart.get_exons(biomart_dataset, chrom=region["chrom"], start=region["start"], end=region["end"])
+        if selected_transcripts is not None:
+            #check if selected_transcripts are in transcripts
+            missing_transcripts = set(selected_transcripts) - set(transcripts.index)
+            if missing_transcripts:
+                raise ValueError(f"Selected transcripts not found in transcripts: {missing_transcripts}")
+            else:
+                transcripts = transcripts.loc[transcripts.index.isin(selected_transcripts)]
+                transcripts = transcripts.reset_index()
+
+    if selected_transcripts is not None:
+        exons = chd.biomart.get_exons(biomart_dataset, chrom=region["chrom"], start=region["start"], end=region["end"], transcripts=transcripts)
+    else:
+        exons = chd.biomart.get_exons(biomart_dataset, chrom=region["chrom"], start=region["start"], end=region["end"], transcripts=None)
+
 
     plotdata_genes = transcripts
     plotdata_genes = center(plotdata_genes, region, window=window)
@@ -272,6 +285,7 @@ class GenesBroken(Broken):
         label_positions=True,
         label_positions_minlength=500,
         label_positions_rotation=0,
+        start_extra_line=None,
         **kwargs,
     ):
 
@@ -385,7 +399,9 @@ class GenesBroken(Broken):
                     ax.add_patch(rect)
 
             # vline at tss
-            ax.axvline(0, color="#888888", lw=0.5, zorder=-1, dashes=(2, 2))
+            ax.axvline(0, color="#AAAAAA", lw=1, zorder=-1, dashes=(1,1))
+            if start_extra_line is not None:
+                ax.axvline(start_extra_line, color="#767676", lw=1, zorder=-1, dashes=(1,1))
 
         ax = self[0, 0]
         ax.set_yticks(np.arange(len(plotdata_genes)))
@@ -470,6 +486,7 @@ class GenesExpanding(polyptich.grid.Panel):
         xticks = None,
         gene_overlap_padding = 10000,
         width = None,
+        start_extra_line=None,
         **kwargs,
     ):
         if width is None:
@@ -704,41 +721,43 @@ class GenesExpanding(polyptich.grid.Panel):
             #     lw=0.5,
             #     zorder=-1,
             # )
-
-            if (region_info["start"] < 0) and (region_info["end"] > 0):
-                x = (breaking_transform(0)[0] / max_breaking_transform * (window[1] - window[0])) + window[0]
-                path = mpl.path.Path(
-                    [
-                        [0, genes_max],
-                        [0, -0.5],
-                        [0, -0.5-control_point_height],
-                        [x, -0.5-control_point_height],
-                        [x, -0.5-expansion_height],
-                    ],
-                    [
-                        Path.MOVETO,
-                        Path.LINETO,
-                        Path.CURVE4,
-                        Path.CURVE4,
-                        Path.CURVE4,
-                    ]
-                )
-                polygon = mpl.patches.PathPatch(
-                    path,
-                    fc = "#FFFFFF00",
-                    ec = "#AAAAAA",
-                    lw=1,
-                    linestyle="dotted",
-                    zorder=-1,
-                    clip_on = False
-                )
-                ax.add_patch(polygon)
+            
+            for extra_line, color in zip([0,start_extra_line], ("#AAAAAA", "#767676")):
+                if extra_line is not None:
+                    if (region_info["start"] < extra_line) and (region_info["end"] > extra_line):
+                        x = (breaking_transform(extra_line)[0] / max_breaking_transform * (window[1] - window[0])) + window[0]
+                        path = mpl.path.Path(
+                            [
+                                [extra_line, genes_max],
+                                [extra_line, -0.5],
+                                [extra_line, -0.5-control_point_height],
+                                [x, -0.5-control_point_height],
+                                [x, -0.5-expansion_height],
+                            ],
+                            [
+                                Path.MOVETO,
+                                Path.LINETO,
+                                Path.CURVE4,
+                                Path.CURVE4,
+                                Path.CURVE4,
+                            ]
+                        )
+                        polygon = mpl.patches.PathPatch(
+                            path,
+                            fc = "#FFFFFF00",
+                            ec = color,
+                            lw=1,
+                            linestyle="dotted",
+                            zorder=-1,
+                            clip_on = False
+                        )
+                        ax.add_patch(polygon)
                         
 
 
     @classmethod
     def from_region(
-        cls, region:pd.Series, breaking, genome:str="GRCh38", window=None, use_cache=True, only_canonical=True, show_others = True, **kwargs
+        cls, region:pd.Series, breaking, genome:str="GRCh38", window=None, use_cache=True, only_canonical=True, show_others = True,selected_transcripts=None, **kwargs
     ):
         """
         Create a GenesExpanding panel from a region.
@@ -764,7 +783,7 @@ class GenesExpanding(polyptich.grid.Panel):
             assert "tss" in region
             window = np.array([region["start"] - region["tss"], region["end"] - region["tss"]])
         plotdata_genes, plotdata_exons, plotdata_coding = get_genes_plotdata(
-            region, genome=genome, window=window, use_cache=use_cache, only_canonical=only_canonical
+            region, genome=genome, window=window, use_cache=use_cache, only_canonical=only_canonical, selected_transcripts=selected_transcripts
         )
 
         if not show_others:
