@@ -446,11 +446,15 @@ class RegionPositional(chd.flow.Flow):
         plotdata = probs.to_dataframe("prob")
         # plotdata["prob"] = plotdata["prob"] * scale - plotdata["prob"].mean() * scale
 
-        if relative_to == "previous":
+        if isinstance(relative_to, str) and relative_to == "previous":
             plotdata_mean = plotdata[["prob"]].groupby("coord", observed=True).mean()
         elif relative_to is not None:
-            if relative_to not in plotdata.index.get_level_values("cluster"):
-                raise ValueError(f"Cluster {relative_to} not in clusters")
+            # allow both a single cluster and a list of clusters
+            relative_to = [relative_to] if isinstance(relative_to, str) else list(relative_to)
+            available_clusters = plotdata.index.get_level_values("cluster")
+            missing = [cluster for cluster in relative_to if cluster not in available_clusters]
+            if missing:
+                raise ValueError(f"Cluster(s) {missing} not in clusters")
             plotdata_mean = (
                 plotdata[["prob"]]
                 .query("cluster in @relative_to")
@@ -505,6 +509,7 @@ class RegionPositional(chd.flow.Flow):
                 ),
                 1 - percent_cutoff,
             )
+            print(f"Using prob_cutoff {prob_cutoff} to select top {percent_cutoff*100}% of regions")
 
         if clusters_oi is not None:
             if isinstance(clusters_oi, (pd.Series, pd.Index)):
